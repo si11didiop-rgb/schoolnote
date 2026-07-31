@@ -1,0 +1,35 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Matiere extends Model
+{
+    /**
+     * Nom de la table associée (différent du nom par défaut "matieres"
+     * pour éviter un conflit technique persistant sur cet environnement)
+     *
+     * @var string
+     */
+    protected $table = 'matiere_scolaire';
+
+    protected $fillable = [
+        'nom',
+        'coefficient',
+    ];
+
+    public function enseignements()
+    {
+        return $this->hasMany(Enseigner::class);
+    }
+
+    public function getEleves()
+    {
+        $classeIds = $this->enseignements()->pluck('classe_id');
+
+        return User::where('role', 'eleve')
+            ->whereIn('classe_id', $classeIds)
+            ->get();
+    }
+}
