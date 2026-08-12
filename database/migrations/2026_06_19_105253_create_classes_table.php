@@ -8,12 +8,16 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Création de la table "classes" qui correspond à la classe UML "Classe"
         Schema::create('classes', function (Blueprint $table) {
             $table->id();
             $table->string('nom');
             $table->string('niveau');
             $table->string('annee_scolaire');
+            // Effectif maximum autorisé dans la classe (par défaut 35 élèves)
+            $table->integer('effectif_max')->default(35);
+            // Publication des bulletins par semestre
+            $table->boolean('bulletin_s1_publie')->default(false);
+            $table->boolean('bulletin_s2_publie')->default(false);
             $table->timestamps();
         });
     }

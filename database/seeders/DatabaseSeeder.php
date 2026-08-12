@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
     /**
      * Remplit la base avec des données de test réalistes et cohérentes
      * must_change_password = false car ce sont des comptes de démonstration
+     * Les coefficients sont maintenant par affectation (matière + classe)
      */
     public function run(): void
     {
@@ -46,11 +47,11 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // ===================================================
-        // MATIERES
+        // MATIERES (sans coefficient — il est dans enseigner)
         // ===================================================
-        $maths    = Matiere::create(['nom' => 'Mathématiques', 'coefficient' => 4]);
-        $francais = Matiere::create(['nom' => 'Français',      'coefficient' => 3]);
-        $svt      = Matiere::create(['nom' => 'SVT',           'coefficient' => 2]);
+        $maths    = Matiere::create(['nom' => 'Mathématiques']);
+        $francais = Matiere::create(['nom' => 'Français']);
+        $svt      = Matiere::create(['nom' => 'SVT']);
 
         // ===================================================
         // ENSEIGNANTS
@@ -167,30 +168,37 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // ===================================================
-        // AFFECTATIONS (table enseigner)
+        // AFFECTATIONS avec coefficients par classe
+        // Terminale A : Maths coeff 4, Français coeff 3, SVT coeff 2
+        // Première B  : Français coeff 4 (coefficient différent !)
         // ===================================================
         $enseignerMaths = Enseigner::create([
             'enseignant_id' => $profMaths->id,
             'matiere_id'    => $maths->id,
             'classe_id'     => $terminaleA->id,
+            'coefficient'   => 4,
         ]);
 
         $enseignerFrancais = Enseigner::create([
             'enseignant_id' => $profFrancais->id,
             'matiere_id'    => $francais->id,
             'classe_id'     => $terminaleA->id,
+            'coefficient'   => 3,
         ]);
 
         $enseignerSvt = Enseigner::create([
             'enseignant_id' => $profSvt->id,
             'matiere_id'    => $svt->id,
             'classe_id'     => $terminaleA->id,
+            'coefficient'   => 2,
         ]);
 
+        // Français en Première B avec un coefficient différent
         Enseigner::create([
             'enseignant_id' => $profFrancais->id,
             'matiere_id'    => $francais->id,
             'classe_id'     => $premiereB->id,
+            'coefficient'   => 4,
         ]);
 
         // ===================================================

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Eleve;
 
 use App\Http\Controllers\Controller;
+use App\Models\Appreciation;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -47,27 +48,38 @@ class EleveController extends Controller
     public function bulletin(Request $request)
     {
         $semestre = (int) $request->get('semestre', 1);
-        $eleve = Auth::user();
+        $eleve    = Auth::user();
 
         // Vérifie si l'admin a publié les bulletins pour ce semestre
         $publie = $eleve->classe?->bulletinsPublies($semestre) ?? false;
 
         if (! $publie) {
             return view('eleve.bulletin', [
-                'semestre' => $semestre,
-                'publie' => false,
-                'complet' => false,
+                'semestre'           => $semestre,
+                'publie'             => false,
+                'complet'            => false,
                 'moyennesParMatiere' => collect(),
-                'moyenneGenerale' => null,
-                'rang' => null,
+                'moyenneGenerale'    => null,
+                'rang'               => null,
+                'appreciations'      => collect(),
             ]);
         }
 
         $complet = $eleve->bulletinComplet($semestre);
 
         $moyennesParMatiere = $complet ? $eleve->moyennesParMatiere($semestre) : collect();
-        $moyenneGenerale = $complet ? $eleve->consulterMoyenne($semestre) : null;
-        $rang = $complet ? $eleve->rangDansLaClasse($semestre) : null;
+        $moyenneGenerale    = $complet ? $eleve->consulterMoyenne($semestre) : null;
+        $rang               = $complet ? $eleve->rangDansLaClasse($semestre) : null;
+
+        // Récupère les appréciations des enseignants pour ce semestre
+        // indexées par matiere_id pour faciliter l'affichage
+        $appreciations = $complet
+            ? Appreciation::where('eleve_id', $eleve->id)
+                ->where('semestre', $semestre)
+                ->with('enseigner.matiere')
+                ->get()
+                ->keyBy(fn ($a) => $a->enseigner->matiere->id)
+            : collect();
 
         return view('eleve.bulletin', compact(
             'moyennesParMatiere',
@@ -75,7 +87,8 @@ class EleveController extends Controller
             'semestre',
             'complet',
             'rang',
-            'publie'
+            'publie',
+            'appreciations'
         ));
     }
 
@@ -86,7 +99,7 @@ class EleveController extends Controller
     public function bulletinPdf(Request $request)
     {
         $semestre = (int) $request->get('semestre', 1);
-        $eleve = Auth::user();
+        $eleve    = Auth::user();
 
         if (! $eleve->classe?->bulletinsPublies($semestre)) {
             abort(403, 'Le bulletin n\'est pas encore disponible pour ce semestre.');
@@ -97,17 +110,25 @@ class EleveController extends Controller
         }
 
         $moyennesParMatiere = $eleve->moyennesParMatiere($semestre);
-        $moyenneGenerale = $eleve->consulterMoyenne($semestre);
-        $rang = $eleve->rangDansLaClasse($semestre);
+        $moyenneGenerale    = $eleve->consulterMoyenne($semestre);
+        $rang               = $eleve->rangDansLaClasse($semestre);
+
+        // Appréciations pour le PDF
+        $appreciations = Appreciation::where('eleve_id', $eleve->id)
+            ->where('semestre', $semestre)
+            ->with('enseigner.matiere')
+            ->get()
+            ->keyBy(fn ($a) => $a->enseigner->matiere->id);
 
         $pdf = Pdf::loadView('eleve.bulletin-pdf', compact(
             'eleve',
             'moyennesParMatiere',
             'moyenneGenerale',
             'semestre',
-            'rang'
+            'rang',
+            'appreciations'
         ));
 
         return $pdf->download("bulletin-semestre-{$semestre}.pdf");
-    } 
+    }
 }

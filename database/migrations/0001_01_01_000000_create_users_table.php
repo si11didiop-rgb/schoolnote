@@ -8,23 +8,27 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Table "users" unique pour tous les rôles (Administrateur, Enseignant, Eleve, Parent)
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('nom');
             $table->string('prenom');
+            $table->enum('genre', ['M', 'F'])->nullable();
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
 
-            // Rôle de l'utilisateur
+            // Rôle de l'utilisateur (Single Table Inheritance)
             $table->enum('role', ['administrateur', 'enseignant', 'eleve', 'parent']);
 
-            // -- Champs spécifiques à Eleve (nullable, utilisés seulement si role=eleve) --
+            // Oblige l'utilisateur à changer son mot de passe à la première connexion
+            $table->boolean('must_change_password')->default(true);
+
+            // -- Champs spécifiques à Eleve --
             $table->date('date_de_naissance')->nullable();
             $table->unsignedBigInteger('classe_id')->nullable();
-            // parent_id pointe vers un autre user qui a role=parent (auto-référence)
             $table->unsignedBigInteger('parent_id')->nullable();
+            // Statut de l'élève (actif par défaut)
+            $table->enum('statut', ['actif', 'suspendu', 'diplome'])->default('actif')->nullable();
 
             // -- Champ spécifique à Enseignant --
             $table->string('specialite')->nullable();

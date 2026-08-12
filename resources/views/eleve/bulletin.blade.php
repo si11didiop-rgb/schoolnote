@@ -6,7 +6,7 @@
     </x-slot>
 
     <div class="py-10">
-        <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
 
             <!-- Sélecteur de semestre -->
             <div class="mb-6 flex space-x-2">
@@ -21,7 +21,6 @@
             </div>
 
             @if (! $publie)
-                <!-- Bulletin pas encore autorisé par l'admin -->
                 <div class="bg-white border border-orange-200 rounded-xl p-6">
                     <div class="flex items-center space-x-3 mb-2">
                         <span class="text-2xl">🔒</span>
@@ -32,7 +31,6 @@
                 </div>
 
             @elseif (! $complet)
-                <!-- Bulletin autorisé mais notes incomplètes -->
                 <div class="bg-white border border-yellow-200 rounded-xl p-6">
                     <div class="flex items-center space-x-3 mb-2">
                         <span class="text-2xl">⏳</span>
@@ -43,7 +41,6 @@
                 </div>
 
             @else
-                <!-- Bulletin complet et publié -->
                 <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
 
                     <!-- En-tête du bulletin -->
@@ -73,13 +70,15 @@
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Matière</th>
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Coefficient</th>
                                 <th class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Moyenne / 20</th>
+                                <th class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Appréciation</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach ($moyennesParMatiere as $ligne)
+                            @foreach ($moyennesParMatiere as $matiereId => $ligne)
                                 @php
                                     $moyenneColor = $ligne['moyenne'] >= 14 ? 'text-green-600' :
                                                    ($ligne['moyenne'] >= 10 ? 'text-yellow-600' : 'text-red-600');
+                                    $appreciation = $appreciations[$matiereId] ?? null;
                                 @endphp
                                 <tr class="border-t border-gray-100 hover:bg-gray-50 transition">
                                     <td class="px-6 py-4 font-medium text-gray-800">
@@ -94,6 +93,9 @@
                                         <span class="text-lg font-bold {{ $moyenneColor }}">
                                             {{ $ligne['moyenne'] }}
                                         </span>
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-gray-600 italic">
+                                        {{ $appreciation ? $appreciation->appreciation : '—' }}
                                     </td>
                                 </tr>
                             @endforeach
@@ -112,6 +114,28 @@
                                         {{ $moyenneGenerale }}
                                     </span>
                                 </td>
+                                <td></td>
+                            </tr>
+                            <tr class="border-t border-indigo-100 bg-indigo-50">
+                                <td class="px-6 py-4 font-bold text-indigo-800" colspan="2">
+                                    Mention
+                                </td>
+                                <td class="px-6 py-4">
+                                    @php
+                                        $mention = Auth::user()->getMention($moyenneGenerale);
+                                        $mentionColor = match($mention) {
+                                            'Très Bien'  => 'bg-green-100 text-green-800',
+                                            'Bien'       => 'bg-blue-100 text-blue-800',
+                                            'Assez Bien' => 'bg-yellow-100 text-yellow-800',
+                                            'Passable'   => 'bg-orange-100 text-orange-800',
+                                            default      => 'bg-red-100 text-red-800',
+                                        };
+                                    @endphp
+                                    <span class="px-3 py-1 rounded-full text-sm font-bold {{ $mentionColor }}">
+                                        {{ $mention }}
+                                    </span>
+                                </td>
+                                <td></td>
                             </tr>
                         </tfoot>
                     </table>

@@ -35,11 +35,24 @@ class CompteController extends Controller
 
     /**
      * Enregistre un nouveau compte en base
-     * et envoie un email de bienvenue avec les identifiants
+     * Vérifie que la classe n'est pas complète avant d'y inscrire un élève
+     * Envoie un email de bienvenue avec les identifiants
      */
     public function store(Request $request)
     {
         $validated = $this->validerCompte($request);
+
+        // Vérification de l'effectif max si c'est un élève
+        if ($validated['role'] === 'eleve' && isset($validated['classe_id'])) {
+            $classe = Classe::find($validated['classe_id']);
+            if ($classe && $classe->estComplete()) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'classe_id' => "La classe {$classe->nom} est complète ({$classe->effectif_max} élèves max).",
+                    ]);
+            }
+        }
 
         // On garde le mot de passe en clair AVANT de le chiffrer
         // car on en a besoin pour l'envoyer par email
@@ -80,10 +93,25 @@ class CompteController extends Controller
     {
         $validated = $this->validerCompte($request, $compte->id);
 
+        // Vérification effectif max si changement de classe pour un élève
+        if (
+            $validated['role'] === 'eleve' &&
+            isset($validated['classe_id']) &&
+            $validated['classe_id'] != $compte->classe_id
+        ) {
+            $classe = Classe::find($validated['classe_id']);
+            if ($classe && $classe->estComplete()) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'classe_id' => "La classe {$classe->nom} est complète ({$classe->effectif_max} élèves max).",
+                    ]);
+            }
+        }
+
         // Le mot de passe n'est mis à jour que s'il a été renseigné
         if (! empty($validated['password'])) {
             $validated['password']             = bcrypt($validated['password']);
-            // Si l'admin change le mot de passe, l'utilisateur devra le changer à la prochaine connexion
             $validated['must_change_password'] = true;
         } else {
             unset($validated['password']);
@@ -113,7 +141,7 @@ class CompteController extends Controller
     {
         $isUpdate = $ignoreId !== null;
 
-        // Vérifie qu'il n'y a pas déjà un administrateur (sauf si on modifie l'admin existant)
+        // Vérifie qu'il n'y a pas déjà un administrateur
         if ($request->role === 'administrateur') {
             $adminExistant = User::where('role', 'administrateur')
                 ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
@@ -135,10 +163,9 @@ class CompteController extends Controller
                 'email',
                 Rule::unique('users', 'email')->ignore($ignoreId),
             ],
-            'password' => $isUpdate ? 'nullable|min:8' : 'required|min:8',
-            'role'     => 'required|in:administrateur,enseignant,eleve,parent',
+            'password'  => $isUpdate ? 'nullable|min:8' : 'required|min:8',
+            'role'      => 'required|in:administrateur,enseignant,eleve,parent',
 
-            // Élève : date de naissance obligatoire, entre 10 et 20 ans
             'date_de_naissance' => [
                 'required_if:role,eleve',
                 'nullable',

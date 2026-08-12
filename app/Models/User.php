@@ -9,12 +9,8 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
-    /**
-     * Les attributs qu'on peut remplir en masse (mass assignment)
-     */
     protected $fillable = [
         'nom',
         'prenom',
@@ -30,17 +26,11 @@ class User extends Authenticatable
         'lien_parente',
     ];
 
-    /**
-     * Les attributs cachés lors de la sérialisation
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Les attributs à transformer (cast) en types PHP
-     */
     protected function casts(): array
     {
         return [
@@ -51,10 +41,6 @@ class User extends Authenticatable
         ];
     }
 
-    /**
-     * Recompose un "name" complet à partir de prenom + nom
-     * Permet de garder {{ $user->name }} fonctionnel dans les vues Breeze
-     */
     public function getNameAttribute(): string
     {
         return "{$this->prenom} {$this->nom}";
@@ -79,19 +65,11 @@ class User extends Authenticatable
     // Méthodes spécifiques au rôle ELEVE
     // ===================================================
 
-    /**
-     * Retourne toutes les notes de cet élève
-     * Correspond à ConsulterNotes() dans le diagramme UML
-     */
     public function consulterNotes()
     {
         return Note::where('eleve_id', $this->id)->get();
     }
 
-    /**
-     * Retourne toutes les évaluations prévues pour la classe de cet élève
-     * Correspond à ConsulterEvaluation() dans le diagramme UML
-     */
     public function consulterEvaluations()
     {
         return Evaluation::whereHas('enseigner', function ($query) {
@@ -99,9 +77,6 @@ class User extends Authenticatable
         })->get();
     }
 
-    /**
-     * Calcule la moyenne de cet élève pour UNE matière donnée
-     */
     public function moyenneParMatiere(int $matiereId): ?float
     {
         $notes = Note::where('eleve_id', $this->id)
@@ -119,7 +94,7 @@ class User extends Authenticatable
 
     /**
      * Retourne la moyenne de cet élève pour CHAQUE matière étudiée
-     * Si $semestre est précisé, ne prend en compte que ce semestre
+     * Le coefficient est maintenant lu depuis la table enseigner (par classe)
      */
     public function moyennesParMatiere(?int $semestre = null)
     {
@@ -137,19 +112,20 @@ class User extends Authenticatable
         return $notes->groupBy(function ($note) {
             return $note->evaluation->enseigner->matiere->id;
         })->map(function ($notesGroup) {
-            $matiere = $notesGroup->first()->evaluation->enseigner->matiere;
+            $enseigner = $notesGroup->first()->evaluation->enseigner;
+            $matiere   = $enseigner->matiere;
 
             return [
                 'matiere'     => $matiere->nom,
-                'coefficient' => $matiere->coefficient,
+                // Coefficient lu depuis enseigner (spécifique à la classe)
+                'coefficient' => $enseigner->coefficient,
                 'moyenne'     => round($notesGroup->avg('valeur'), 2),
             ];
         });
     }
 
     /**
-     * Calcule la moyenne générale de cet élève (toute l'année, ou un semestre donné)
-     * Correspond à ConsulterMoyenne() dans le diagramme UML
+     * Calcule la moyenne générale pondérée par les coefficients de la classe
      */
     public function consulterMoyenne(?int $semestre = null): ?float
     {
@@ -159,7 +135,7 @@ class User extends Authenticatable
             return null;
         }
 
-        $totalPondere    = 0;
+        $totalPondere      = 0;
         $totalCoefficients = 0;
 
         foreach ($moyennes as $data) {
@@ -173,8 +149,21 @@ class User extends Authenticatable
     }
 
     /**
-     * Vérifie si le bulletin de ce semestre est complet
+     * Retourne la mention selon la moyenne générale
      */
+    public function getMention(?float $moyenne): string
+    {
+        if ($moyenne === null) return '—';
+
+        return match (true) {
+            $moyenne >= 16 => 'Très Bien',
+            $moyenne >= 14 => 'Bien',
+            $moyenne >= 12 => 'Assez Bien',
+            $moyenne >= 10 => 'Passable',
+            default        => 'Insuffisant',
+        };
+    }
+
     public function bulletinComplet(int $semestre): bool
     {
         $evaluations = $this->consulterEvaluations()
@@ -191,9 +180,6 @@ class User extends Authenticatable
         return $evaluations->pluck('id')->diff($idsEvaluationsNotees)->isEmpty();
     }
 
-    /**
-     * Calcule le rang de cet élève dans sa classe, pour un semestre donné
-     */
     public function rangDansLaClasse(int $semestre): ?array
     {
         $elevesDeLaClasse = User::where('role', 'eleve')
@@ -227,10 +213,6 @@ class User extends Authenticatable
     // Méthodes spécifiques au rôle ENSEIGNANT
     // ===================================================
 
-    /**
-     * Retourne les classes où cet enseignant intervient (lecture seule)
-     * Correspond à ConsulterClasses() dans le diagramme UML
-     */
     public function consulterClasses()
     {
         return Classe::whereHas('enseignements', function ($query) {
@@ -238,10 +220,6 @@ class User extends Authenticatable
         })->get();
     }
 
-    /**
-     * Retourne les matières enseignées par cet enseignant (lecture seule)
-     * Correspond à ConsulterMatiere() dans le diagramme UML
-     */
     public function consulterMatieres()
     {
         return Matiere::whereHas('enseignements', function ($query) {

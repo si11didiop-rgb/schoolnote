@@ -8,19 +8,20 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Table "enseigner" : association ternaire Enseignant/Matiere/Classe
         Schema::create('enseigner', function (Blueprint $table) {
             $table->id();
 
-            // Lien vers l'enseignant concerné (un user avec role=enseignant)
             $table->foreignId('enseignant_id')->constrained('users')->cascadeOnDelete();
-
             $table->foreignId('matiere_id')->constrained('matiere_scolaire')->cascadeOnDelete();
             $table->foreignId('classe_id')->constrained('classes')->cascadeOnDelete();
 
+            // Coefficient spécifique à chaque matière par classe
+            $table->integer('coefficient')->default(1);
+
             $table->timestamps();
 
-            $table->unique(['enseignant_id', 'matiere_id', 'classe_id']);
+            // Une matière ne peut être enseignée que par un seul enseignant par classe
+            $table->unique(['matiere_id', 'classe_id']);
         });
     }
 

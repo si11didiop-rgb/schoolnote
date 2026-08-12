@@ -9,14 +9,11 @@ class Matiere extends Model
     /**
      * Nom de la table associée (différent du nom par défaut "matieres"
      * pour éviter un conflit technique persistant sur cet environnement)
-     *
-     * @var string
      */
     protected $table = 'matiere_scolaire';
 
     protected $fillable = [
         'nom',
-        'coefficient',
     ];
 
     public function enseignements()

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Enseignant;
 
 use App\Http\Controllers\Controller;
 use App\Mail\NoteDisponibleMail;
+use App\Models\Appreciation;
 use App\Models\Evaluation;
 use App\Models\Note;
 use App\Models\User;
@@ -31,21 +32,33 @@ class NoteController extends Controller
             ->get()
             ->keyBy('eleve_id');
 
-        return view('enseignant.notes.edit', compact('evaluation', 'eleves', 'notesExistantes'));
+        // Récupère les appréciations existantes pour ce semestre, indexées par eleve_id
+        $appreciationsExistantes = Appreciation::where('enseigner_id', $evaluation->enseigner_id)
+            ->where('semestre', $evaluation->semestre)
+            ->get()
+            ->keyBy('eleve_id');
+
+        return view('enseignant.notes.edit', compact(
+            'evaluation',
+            'eleves',
+            'notesExistantes',
+            'appreciationsExistantes'
+        ));
     }
 
     /**
-     * Enregistre ou met à jour les notes de tous les élèves pour cette évaluation
+     * Enregistre ou met à jour les notes et appréciations de tous les élèves
      * Envoie une notification email à chaque élève et son parent avec délai progressif
-     * pour respecter la limite d'envoi du serveur SMTP (Mailtrap : 1 email/seconde)
      */
     public function update(Request $request, Evaluation $evaluation)
     {
         $this->verifierAppartenance($evaluation);
 
         $validated = $request->validate([
-            'notes'   => 'required|array',
-            'notes.*' => 'nullable|numeric|min:0|max:20',
+            'notes'           => 'required|array',
+            'notes.*'         => 'nullable|numeric|min:0|max:20',
+            'appreciations'   => 'nullable|array',
+            'appreciations.*' => 'nullable|string|max:500',
         ]);
 
         $evaluation->load('enseigner.matiere');
@@ -71,6 +84,21 @@ class NoteController extends Controller
                 ]
             );
 
+            // Sauvegarde l'appréciation si elle est renseignée
+            $appreciation = $validated['appreciations'][$eleveId] ?? null;
+            if ($appreciation && trim($appreciation) !== '') {
+                Appreciation::updateOrCreate(
+                    [
+                        'enseigner_id' => $evaluation->enseigner_id,
+                        'eleve_id'     => $eleveId,
+                        'semestre'     => $evaluation->semestre,
+                    ],
+                    [
+                        'appreciation' => trim($appreciation),
+                    ]
+                );
+            }
+
             // Charge les relations nécessaires pour l'email
             $note->load('evaluation.enseigner.matiere');
 
@@ -95,7 +123,7 @@ class NoteController extends Controller
         }
 
         return redirect()->route('enseignant.evaluations.index')
-            ->with('success', 'Notes enregistrées. Les élèves et parents ont été notifiés par email.');
+            ->with('success', 'Notes et appréciations enregistrées. Les élèves et parents ont été notifiés par email.');
     }
 
     /**

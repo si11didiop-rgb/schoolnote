@@ -12,6 +12,7 @@ class Classe extends Model
         'annee_scolaire',
         'bulletin_s1_publie',
         'bulletin_s2_publie',
+        'effectif_max',
     ];
 
     protected function casts(): array
@@ -19,6 +20,7 @@ class Classe extends Model
         return [
             'bulletin_s1_publie' => 'boolean',
             'bulletin_s2_publie' => 'boolean',
+            'effectif_max'       => 'integer',
         ];
     }
 
@@ -45,6 +47,14 @@ class Classe extends Model
     public function afficherEffectif(): int
     {
         return $this->eleves()->count();
+    }
+
+    /**
+     * Vérifie si la classe est complète (effectif max atteint)
+     */
+    public function estComplete(): bool
+    {
+        return $this->afficherEffectif() >= $this->effectif_max;
     }
 
     /**
