@@ -11,6 +11,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Fait confiance au proxy Railway pour détecter le HTTPS
+        $middleware->trustProxies(at: '*');
+
         // Déclare les alias de middleware utilisables dans les routes
         $middleware->alias([
             'role'                  => \App\Http\Middleware\CheckRole::class,
